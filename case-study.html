@@ -1,286 +1,339 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Agent Receptionist: AI agent case study - Osama Malik</title>
-  <meta name="description" content="Engineering case study: a tool-calling LLM agent with cited RAG, policy pre-routing, a per-sentence guard, a deterministic fallback, streaming SSE, and measured latency and cost." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-:root {
-      --void: #07060a;
-      --surface: #121018;
-      --surface-2: #1a1722;
-      --champagne: #f0e0c4;
-      --champagne-dim: #c9b896;
-      --ember: #ff5a36;
-      --ember-soft: #ff8f6e;
-      --sky: #6ea8ff;
-      --mist: #9aa0b5;
-      --line: rgba(240, 224, 196, 0.14);
-      --text: #f6f1e8;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Receptionist: AI agent case study - Osama Malik</title>
+<meta name="description" content="Engineering case study: a tool-calling LLM agent with cited RAG, policy pre-routing, a per-sentence guard, a deterministic fallback, streaming SSE, and measured latency and cost.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('js')</script>
+<style>
 
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-    }
-    body {
-      margin: 0;
-      color: var(--text);
-      font-family: Manrope, system-ui, sans-serif;
-      background: var(--void);
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-    a { color: var(--champagne); text-decoration: none; transition: color 0.2s; }
-    a:hover { color: var(--ember-soft); }
+:root{
+  --bg:#080b0a; --panel:#0d1210; --panel2:#111815; --line:#1d2622; --line2:#2a3631;
+  --text:#dde6e0; --dim:#8a978f; --faint:#6b7770; --accent:#3ddc84; --accent-dim:rgba(61,220,132,.12);
+  --warn:#e5b567;
+  --sans:"Inter Tight","Helvetica Neue",Arial,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--accent);color:#04100a}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+.mono{font-family:var(--mono)}
+.wrap{max-width:1240px;margin:0 auto;padding:0 32px}
 
-    /* —— Atmosphere (static; no spinning blur) —— */
-    .fx-root {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
-      background:
-        radial-gradient(ellipse 90% 60% at 10% -10%, rgba(255, 90, 54, 0.2), transparent 55%),
-        radial-gradient(ellipse 70% 50% at 100% 0%, rgba(110, 168, 255, 0.14), transparent 50%),
-        radial-gradient(ellipse 50% 40% at 50% 100%, rgba(240, 224, 196, 0.06), transparent 60%),
-        linear-gradient(180deg, #0a0810 0%, #07060a 40%, #0c0a12 100%);
-      contain: strict;
-    }
-        .fx-root{}
-.wrap { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 20px 22px 100px; }
-/* —— Header —— */
-    header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 14px 0 28px;
-    }
-    .brand {
-      font-weight: 800; letter-spacing: -0.03em; font-size: 17px;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .brand .dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: var(--ember);
-    }
-    .brand span { color: var(--mist); font-weight: 500; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
-    nav { display: flex; gap: 20px; font-size: 13px; font-weight: 600; }
-    nav a { color: #d7dceb; }
-    nav a:hover { color: var(--champagne); }
+/* spotlight + grid */
+.bgfx{position:absolute;inset:0 0 auto 0;height:900px;pointer-events:none;z-index:0;overflow:hidden}
+.bgfx::before{content:"";position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:56px 56px;opacity:.35;-webkit-mask-image:radial-gradient(ellipse 70% 80% at 50% 0%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse 70% 80% at 50% 0%,#000 20%,transparent 75%)}
+.spot{position:absolute;inset:0;background:radial-gradient(520px circle at var(--mx,70%) var(--my,25%),rgba(61,220,132,.10),transparent 60%)}
+header,main,footer{position:relative;z-index:1}
 
-    .kicker {
-      display: inline-flex; align-items: center; gap: 10px;
-      padding: 7px 14px; margin-bottom: 22px;
-      border: 1px solid var(--line); border-radius: 999px;
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--champagne-dim); font-size: 12px; font-weight: 600;
-      letter-spacing: 0.08em; text-transform: uppercase;
-    }
-    .kicker em {
-      font-style: normal; color: var(--ember-soft);
-    }
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:rgba(8,11,10,.82);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;height:56px}
+.brand{font-family:var(--mono);font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px}
+.brand .sq{width:22px;height:22px;border:1px solid var(--accent);display:grid;place-items:center;color:var(--accent);font-size:11px;font-weight:700}
+.nav{display:flex;gap:26px;font-family:var(--mono);font-size:12.5px;color:var(--dim)}
+.nav a{padding:6px 0;border-bottom:1px solid transparent;transition:color .2s,border-color .2s}
+.nav a:hover{color:var(--accent);border-color:var(--accent)}
+.nav a::before{content:"./";color:var(--faint)}
 
-    h1 {
-      font-family: "Instrument Serif", Georgia, serif;
-      font-weight: 400; font-size: clamp(46px, 7vw, 84px);
-      line-height: 0.95; letter-spacing: -0.02em; margin: 0 0 20px;
-    }
-    h1 .word { display: inline; }
-    h1 .grad {
-      color: #ff7a52;
-      position: relative;
-    }
-    h1 .grad::after {
-      content: ""; position: absolute; left: 0; right: 0; bottom: 0.08em; height: 0.12em;
-      background: linear-gradient(90deg, #ffe6c4, #ff5a36, #6ea8ff);
-      border-radius: 4px;
-    }
+/* hero */
+.hero{padding-top:56px;padding-bottom:24px}
+.statusbar{display:flex;flex-wrap:wrap;border:1px solid var(--line2);background:var(--panel);font-family:var(--mono);font-size:12px;color:var(--dim)}
+.statusbar>div{padding:9px 16px;border-right:1px solid var(--line2);display:flex;gap:8px;align-items:center;white-space:nowrap}
+.statusbar>div:last-child{border-right:0;margin-left:auto}
+.statusbar b{font-weight:500;color:var(--text)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 rgba(61,220,132,.6)}
+@media (prefers-reduced-motion:no-preference){.dot{animation:pulse 2.4s infinite}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,220,132,.55)}70%{box-shadow:0 0 0 8px rgba(61,220,132,0)}100%{box-shadow:0 0 0 0 rgba(61,220,132,0)}}
+h1{font-size:clamp(32px,4.9vw,66px);line-height:1.04;letter-spacing:-.03em;font-weight:600;margin:44px 0 24px;max-width:21ch}
+h1 .a{color:var(--accent)}
+.lede{max-width:62ch;color:var(--dim);font-size:18px}
+.lede b{color:var(--text);font-weight:500}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.btn{font-family:var(--mono);font-size:13px;font-weight:500;padding:12px 18px;border:1px solid var(--line2);display:inline-flex;gap:10px;align-items:center;transition:all .2s;background:transparent;color:var(--text);cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#03130a}
+.btn.pri:hover{background:#6af0a5;color:#03130a}
+.btn .ar{transition:transform .2s}.btn:hover .ar{transform:translate(2px,-2px)}
 
-    .lede {
-      color: #c8cde0; font-size: 17px; line-height: 1.65;
-      max-width: 42ch; margin: 0 0 28px;
-    }
-    .cta-row {
-      display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 32px;
-    }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 14px 22px; border-radius: 14px; border: 0;
-      font-family: Manrope, sans-serif; font-weight: 700; font-size: 14px;
-      cursor: pointer;
-    }
-    .btn-primary {
-      color: #140804;
-      background: linear-gradient(135deg, var(--champagne), var(--ember));
-      box-shadow: 0 8px 24px rgba(255, 90, 54, 0.22);
-    }
-    .btn-ghost {
-      color: var(--text);
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--line);
-    }
+/* section head */
+.sh{display:flex;align-items:baseline;gap:14px;margin:56px 0 18px;font-family:var(--mono);font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.12em}
+.sh::before{content:"";width:8px;height:8px;background:var(--accent)}
+.sh::after{content:"";flex:1;height:1px;background:var(--line2)}
 
-    .metrics {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
-      max-width: 460px;
-    }
-    .metric {
-      padding: 16px 14px; border-radius: 16px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--line);
-    }
-    .metric b {
-      display: block; font-family: "Instrument Serif", serif;
-      font-size: 34px; font-weight: 400; line-height: 1;
-      color: var(--ember-soft);
-    }
-    .metric span { color: var(--mist); font-size: 12px; font-weight: 600; }
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line2);border:1px solid var(--line2)}
+.tile{background:var(--panel);padding:18px 20px 18px;position:relative;transition:background .25s;min-height:150px;display:flex;flex-direction:column}
+.tile:hover{background:var(--panel2)}
+.tile .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);display:flex;flex-direction:column;gap:3px}
+.tile .k i{font-style:normal;color:var(--faint);letter-spacing:.04em;text-transform:none;font-size:11px}
+.tile .v{font-family:var(--mono);font-size:38px;font-weight:500;letter-spacing:-.04em;margin:10px 0 2px;color:var(--text);line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .v small{font-size:15px;color:var(--dim);letter-spacing:0;margin-left:4px;font-weight:400}
+.tile .v em{font-style:normal;color:var(--accent)}
+.tile .s{font-size:13px;color:var(--dim);line-height:1.4}
+.cells{display:flex;gap:2px;margin-top:auto}
+.cells span{flex:1;height:10px;background:var(--accent);opacity:.85;min-width:0}
+.cells span.x{background:var(--warn);opacity:.9}
+.cells.line{display:block;padding:0;position:relative;height:1px;background:var(--line2);margin-top:auto;overflow:hidden}
+.tile .s{margin-bottom:14px}
+.cells.line::after{content:'';position:absolute;left:0;top:0;height:1px;width:28%;background:linear-gradient(90deg,transparent,var(--accent))}
+@media (prefers-reduced-motion:no-preference){.cells.line::after{animation:scan 4.5s linear infinite}@keyframes scan{from{transform:translateX(-100%)}to{transform:translateX(360%)}}}
+@media (prefers-reduced-motion:no-preference){
+  .js .tiles.in .cells span{animation:cell .5s both;animation-delay:calc(var(--i)*14ms)}
+  @keyframes cell{from{opacity:0;transform:scaleY(.2)}to{opacity:.85;transform:none}}
+  .js .tiles:not(.in) .cells span{opacity:0}
+}
 
-    /* —— Sections —— */
-    section { margin-top: 88px; }
-    .sec-head { margin-bottom: 28px; }
-    h2 {
-      font-family: "Instrument Serif", serif; font-weight: 400;
-      font-size: clamp(34px, 5vw, 52px); margin: 0 0 10px; letter-spacing: -0.02em;
-    }
-    .sub { color: var(--mist); margin: 0; max-width: 50ch; }
+/* flagship */
+.flag{display:grid;grid-template-columns:1fr 1.15fr;gap:40px;align-items:start}
+.flag .tag{font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:12px}
+.flag h2{font-size:clamp(28px,3.4vw,42px);letter-spacing:-.025em;line-height:1.1;font-weight:600;margin-bottom:16px}
+.flag p{color:var(--dim);margin-bottom:14px}
+.flag p b{color:var(--text);font-weight:500}
+.checks{list-style:none;margin:18px 0 24px;border-top:1px solid var(--line2)}
+.checks li{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px;color:var(--dim)}
+.checks li span{font-family:var(--mono);font-size:11.5px;color:var(--accent);min-width:104px;padding-top:3px;text-transform:uppercase;letter-spacing:.06em}
+.checks li b{font-weight:500;color:var(--text)}
+.term{border:1px solid var(--line2);background:#060908;font-family:var(--mono);font-size:13px;line-height:1.7;box-shadow:0 30px 60px -30px rgba(0,0,0,.8)}
+.term .bar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--line2);color:var(--dim);font-size:11.5px}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line2)}
+.term .bar span{margin-left:auto}
+.term pre{font:inherit;padding:16px 18px 18px;white-space:pre-wrap;word-break:break-word}
+.term .ln{display:block}
+.term .ln.p{display:grid;grid-template-columns:44px 168px 1fr}
+.term .nm{color:var(--text)}
+.term .c{color:var(--faint)}.term .g{color:var(--accent)}.term .w{color:var(--warn)}.term .d{color:var(--dim)}.term .t{color:#fff}
+.term .caret{display:inline-block;width:8px;height:15px;background:var(--accent);vertical-align:-3px}
+@media (prefers-reduced-motion:no-preference){
+  .caret{animation:blink 1.1s steps(1) infinite}@keyframes blink{50%{opacity:0}}
+  .js .term:not(.run) .ln{opacity:0;transform:translateY(4px)}
+  .js .term.run .ln{animation:ln .4s both;animation-delay:calc(var(--i)*260ms)}
+  @keyframes ln{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+}
+.term .go{display:flex;flex-wrap:wrap;gap:10px;padding:0 18px 18px}
+.term .go a{border:1px solid var(--line2);padding:8px 12px;font-size:12px;color:var(--text);transition:all .2s}
+.term .go a:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.term .go a.cs{border-color:transparent;color:var(--dim)}
+.note{font-size:13px;color:var(--faint);margin-top:12px;font-family:var(--mono)}
 
-    .deck {
-      display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px;
-    }
-    .tile {
-      position: relative; padding: 26px 22px; border-radius: 22px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--line);
-      overflow: hidden;
-      content-visibility: auto;
-      contain-intrinsic-size: 220px;
-    }
-    @media (hover: hover) {
-      .tile:hover { border-color: rgba(240, 224, 196, 0.35); }
-    }
-    .tile .tag {
-      color: var(--ember-soft); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.14em; text-transform: uppercase;
-    }
-    .tile h3 {
-      font-family: "Instrument Serif", serif; font-weight: 400;
-      font-size: 28px; margin: 10px 0 10px; letter-spacing: -0.02em;
-    }
-    .tile p { margin: 0; color: var(--mist); font-size: 14.5px; line-height: 1.55; }
-    .tile .links { margin-top: 14px; font-size: 13px; font-weight: 600; }
+/* project list */
+.rows{border-top:1px solid var(--line2)}
+.row{display:grid;grid-template-columns:48px 220px 1fr 190px;gap:24px;padding:20px 12px;border-bottom:1px solid var(--line);align-items:start;position:relative;transition:background .25s}
+.row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent);transform:scaleY(0);transition:transform .25s}
+.row:hover{background:var(--panel)}.row:hover::before{transform:scaleY(1)}
+.row .n{font-family:var(--mono);font-size:12px;color:var(--faint);padding-top:4px}
+.row h3{font-size:19px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+.row h3 small{display:block;font-family:var(--mono);font-size:11px;font-weight:400;color:var(--accent);margin-top:6px;letter-spacing:.06em;text-transform:uppercase}
+.row p{color:var(--dim);font-size:15px}
+.row .lk{font-family:var(--mono);font-size:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start;color:var(--dim)}
+.row .lk a{border-bottom:1px solid var(--line2);transition:all .2s}
+.row .lk a:hover{color:var(--accent);border-color:var(--accent)}
+.row .lk a::after{content:" ↗";color:var(--faint)}
+.row .lk span{color:var(--faint)}
+.sub{color:var(--dim);font-size:14px;margin:-8px 0 18px;font-family:var(--mono)}
 
-    
-    /* —— Case study additions —— */
-    .back { color: var(--mist); font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 18px; }
-    .case-hero { padding: 10px 0 24px; max-width: 900px; }
-    .case-hero h1 { font-size: clamp(40px, 6vw, 72px); }
-    .case-hero .lede { max-width: 62ch; }
-    .case-hero .metrics { max-width: 760px; grid-template-columns: repeat(4, 1fr); }
-    .metric b { font-size: 30px; }
-    .prose { max-width: 74ch; color: #c8cde0; font-size: 16px; line-height: 1.7; }
-    .prose p { margin: 0 0 14px; }
-    code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; color: var(--champagne); background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 6px; }
-    .prose strong { color: var(--champagne); }
-    .tile h3 { font-size: 24px; }
-    .tile ul { margin: 10px 0 0; padding-left: 18px; color: var(--mist); font-size: 14.5px; line-height: 1.6; }
-    .tile li { margin-bottom: 4px; }
-    .tile li b, .tile p b { color: var(--champagne); font-weight: 700; }
-    .tile { content-visibility: visible; }
+/* stack + contact */
+.stack{display:flex;flex-wrap:wrap;gap:8px}
+.stack span{font-family:var(--mono);font-size:12.5px;padding:7px 12px;border:1px solid var(--line2);color:var(--text);background:var(--panel);transition:all .2s}
+.stack span:hover{border-color:var(--accent);color:var(--accent)}
+.contact{margin-top:64px;border:1px solid var(--line2);background:var(--panel);display:grid;grid-template-columns:1.2fr 1fr;gap:0}
+.contact>div{padding:32px}
+.contact>div:first-child{border-right:1px solid var(--line2)}
+.contact h2{font-size:clamp(26px,3vw,38px);letter-spacing:-.025em;line-height:1.12;font-weight:600;margin-bottom:12px}
+.contact p{color:var(--dim);max-width:46ch}
+.kv{font-family:var(--mono);font-size:13.5px;display:grid;grid-template-columns:90px 1fr;row-gap:12px;align-content:center;height:100%}
+.kv dt{color:var(--faint);text-transform:uppercase;font-size:11px;letter-spacing:.1em;padding-top:2px}
+.kv dd a{border-bottom:1px solid var(--line2);transition:all .2s;word-break:break-all}
+.kv dd a:hover{color:var(--accent);border-color:var(--accent)}
+footer{padding:28px 0 40px;font-family:var(--mono);font-size:12px;color:var(--faint)}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;border-top:1px solid var(--line);padding-top:20px}
 
-    /* Architecture diagram (HTML/CSS) */
-    .arch { display: grid; gap: 14px; }
-    .arch-row { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: stretch; }
-    .node {
-      padding: 16px 16px; border-radius: 18px; background: rgba(255,255,255,0.05);
-      border: 1px solid var(--line); font-size: 13.5px; color: var(--mist); line-height: 1.5;
-    }
-    .node b { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
-    .node small { display: block; margin-top: 6px; color: var(--champagne-dim); font-size: 12px; }
-    .node.hot { border-color: rgba(255, 143, 110, 0.5); background: rgba(255, 90, 54, 0.08); }
-    .node.cool { border-color: rgba(110, 168, 255, 0.45); background: rgba(110, 168, 255, 0.07); }
-    .node.zero { border-color: rgba(125, 255, 179, 0.4); background: rgba(125, 255, 179, 0.06); }
-    .arrow { align-self: center; color: var(--ember-soft); font-size: 22px; text-align: center; }
-    .arch-note { color: var(--mist); font-size: 13px; margin: 4px 0 0; max-width: 80ch; }
-    .tag-sm { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ember-soft); margin-bottom: 6px; }
+/* reveal */
+@media (prefers-reduced-motion:no-preference){
+  .js .rv{opacity:0;transform:translateY(14px);transition:opacity .7s ease,transform .7s ease}
+  .js .rv.in{opacity:1;transform:none}
+  html{scroll-behavior:smooth}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.spot{display:none}}
 
-    /* Results table */
-    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,0.03); }
-    table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 640px; }
-    th, td { text-align: left; padding: 14px 18px; vertical-align: top; border-bottom: 1px solid var(--line); }
-    th { color: var(--champagne-dim); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
-    tr:last-child td { border-bottom: 0; }
-    td:first-child { color: var(--text); font-weight: 700; width: 30%; }
-    td { color: var(--mist); }
-    td .big { font-family: "Instrument Serif", serif; font-size: 26px; color: var(--ember-soft); line-height: 1; }
-    .fine { color: var(--mist); font-size: 13px; margin-top: 12px; max-width: 80ch; }
+@media (max-width:1060px){
+  .tiles{grid-template-columns:repeat(2,1fr)}
+  .flag{grid-template-columns:1fr}
+  .row{grid-template-columns:40px 1fr;gap:6px 16px}
+  .row p,.row .lk{grid-column:2}
+  .row .lk{flex-direction:row;gap:16px;flex-wrap:wrap;margin-top:4px}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .nav{gap:16px;font-size:12px}
+  .nav a:nth-child(3){display:none}
+  .hero{padding-top:36px;padding-bottom:24px}
+  .statusbar{font-size:11px}
+  .statusbar>div{border-right:0;border-bottom:1px solid var(--line2);width:50%;padding:8px 12px;white-space:normal}
+  .statusbar>div:nth-child(odd){border-right:1px solid var(--line2)}
+  .statusbar>div:last-child{margin:0;width:100%;border-bottom:0;border-right:0}
+  .statusbar>div:nth-last-child(2){border-bottom:1px solid var(--line2)}
+  h1{margin:30px 0 18px}
+  .lede{font-size:16.5px}
+  .tile{padding:14px;min-height:140px}.tile .v{font-size:28px}.tile .v small{font-size:12px;display:block;margin:2px 0 0}
+  .tile .k{font-size:10px;flex-direction:column;gap:2px}
+  .tile .s{font-size:12px}
+  .checks li{flex-direction:column;gap:2px}
+  .term{font-size:12px}
+  .term .ln.p{grid-template-columns:36px 1fr}
+  .term .ln.p .ds{grid-column:2;padding-bottom:6px}
+  .contact{grid-template-columns:1fr}.contact>div:first-child{border-right:0;border-bottom:1px solid var(--line2)}
+  .contact>div{padding:22px}
+  .kv{grid-template-columns:78px 1fr}
+  .statusbar .hide-m{display:none}
+}
+/* ===== case study ===== */
+.back{display:inline-block;font-family:var(--mono);font-size:12.5px;color:var(--dim);margin:36px 0 0;transition:color .2s}
+.back:hover{color:var(--accent)}
+.chero{padding:18px 0 8px}
+.chero .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.chero .kicker em{font-style:normal;color:var(--accent)}
+.chero h1{max-width:none;font-size:clamp(40px,6vw,76px);margin:18px 0 20px;line-height:1.02}
+.chero .lede{max-width:64ch}
+.chero .cta{margin:28px 0 36px}
+.tiles.four{grid-template-columns:repeat(4,1fr);margin-bottom:0}
+.sechead{margin:72px 0 22px}
+.sechead .sh{margin:0 0 16px}
+.sechead h2{font-size:clamp(26px,3vw,38px);letter-spacing:-.025em;line-height:1.1;font-weight:600;margin-bottom:8px}
+.sechead p{color:var(--dim);max-width:64ch}
+.prose{max-width:74ch;color:var(--dim);font-size:16.5px;line-height:1.7}
+.prose p{margin:0 0 14px}
+.prose strong,.prose b{color:var(--text);font-weight:500}
+code{white-space:nowrap;font-family:var(--mono);font-size:.88em;color:var(--accent);background:var(--panel2);border:1px solid var(--line);padding:1px 6px}
 
-    .demo-card { max-width: 900px; padding: 28px 24px; border-radius: 22px; background: rgba(255,255,255,0.05); border: 1px solid var(--line); }
-    .demo-card .cta-row { margin: 18px 0 8px; }
-    a.btn-primary:hover { color: #140804; filter: brightness(1.06); }
+.arch{display:grid;gap:12px}
+.arch-row{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:stretch}
+.node{padding:16px 16px 14px;background:var(--panel);border:1px solid var(--line2);font-size:14px;color:var(--dim);line-height:1.5;transition:border-color .25s,background .25s}
+.node:hover{background:var(--panel2)}
+.node b{display:block;color:var(--text);font-size:15px;font-weight:600;margin-bottom:4px}
+.node small{display:block;margin-top:8px;color:var(--faint);font-family:var(--mono);font-size:11px;letter-spacing:.03em}
+.node.hot{border-color:rgba(61,220,132,.55)}
+.node.hot small{color:var(--accent)}
+.node.zero{border-color:rgba(61,220,132,.55);background:var(--accent-dim)}
+.node.zero small{color:var(--accent)}
+.node.cool{border-color:var(--line2)}
+.node code{color:var(--accent);background:transparent;border:0;padding:0}
+.arrow{align-self:center;color:var(--accent);font-family:var(--mono);font-size:18px;text-align:center}
+.arch-note{color:var(--faint);font-family:var(--mono);font-size:12.5px;margin:14px 0 0;max-width:90ch}
 
-    @media (max-width: 960px) {
-      .arch-row { grid-template-columns: 1fr; }
-      .arrow { transform: rotate(90deg); }
-      .case-hero .metrics { grid-template-columns: repeat(2, 1fr); }
-      section { margin-top: 56px; }
-      .deck { grid-template-columns: 1fr; }
-      h1 { font-size: clamp(36px, 10vw, 52px); }
-    }
+.deck{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line2);border:1px solid var(--line2)}
+.card{background:var(--panel);padding:24px 24px 22px;transition:background .25s}
+.card:hover{background:var(--panel2)}
+.card .tag{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:10px}
+.card h3{font-size:20px;font-weight:600;letter-spacing:-.012em;line-height:1.25;margin-bottom:10px}
+.card p,.card ul{color:var(--dim);font-size:15px}
+.card ul{margin:6px 0 0;padding-left:18px;line-height:1.6}
+.card li{margin-bottom:5px}
+.card li b,.card p b{color:var(--text);font-weight:500}
 
-  </style>
+.table-wrap{overflow-x:auto;border:1px solid var(--line2);background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:15px;min-width:640px}
+th,td{text-align:left;padding:14px 18px;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);color:var(--dim);font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:500;background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--text);font-weight:500;width:28%}
+td{color:var(--dim)}
+td .big{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--accent);letter-spacing:-.03em;line-height:1.1}
+td b{color:var(--text);font-weight:500}
+tbody tr{transition:background .2s}tbody tr:hover{background:var(--panel2)}
+.fine{color:var(--faint);font-size:13.5px;margin-top:14px;max-width:84ch;font-family:var(--mono);line-height:1.6}
+.fine a{color:var(--text);border-bottom:1px solid var(--line2)}.fine a:hover{color:var(--accent);border-color:var(--accent)}
+
+.demo{max-width:900px;padding:28px 26px;background:var(--panel);border:1px solid var(--line2);position:relative}
+.demo::before{content:"";position:absolute;left:-1px;top:-1px;width:28px;height:2px;background:var(--accent)}
+.demo .cta{margin:18px 0 10px}
+footer .wrap{display:block;border-top:0;padding-top:0}
+footer .fin{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-top:1px solid var(--line);padding-top:20px;margin-top:72px}
+footer .fl{display:flex;flex-wrap:wrap;gap:6px 22px}
+footer a:hover{color:var(--accent)}
+.nav{gap:22px}
+
+@media (max-width:1060px){
+  .tiles.four{grid-template-columns:repeat(2,1fr)}
+  .arch-row{grid-template-columns:1fr}
+  .arrow{transform:rotate(90deg);padding:2px 0}
+}
+@media (max-width:760px){.deck{grid-template-columns:1fr}}
+@media (max-width:640px){
+  .nav a:nth-child(3),.nav a:nth-child(4){display:none}
+  .nav a:nth-child(1),.nav a:nth-child(2){display:inline}
+  .nav{gap:16px}
+  .brand .loc{display:none}.brand{white-space:nowrap}
+  .sechead{margin-top:56px}
+  .card{padding:20px 18px}
+  .chero{padding-top:6px}
+  td .big{font-size:20px}
+  .table-wrap{overflow:visible}
+  table{min-width:0;display:block}
+  thead{display:none}
+  tbody,tr{display:block}
+  tr{padding:14px 16px;border-bottom:1px solid var(--line)}
+  tr:last-child{border-bottom:0}
+  td{display:block;padding:2px 0;border:0;width:auto!important}
+  td:first-child{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:400;padding-bottom:4px}
+}
+</style>
 </head>
 <body>
-  <div class="fx-root" aria-hidden="true"></div>
-
+<div class="bgfx" aria-hidden="true"><div class="spot" id="spot"></div></div>
+<header class="top">
   <div class="wrap">
-    <header>
-      <div class="brand"><i class="dot"></i> Osama Malik <span>Islamabad</span></div>
-      <nav>
-        <a href="index.html">Portfolio</a>
-        <a href="mailto:usmamalik346@gmail.com">Email</a>
-        <a href="https://github.com/usmamalik345" target="_blank" rel="noreferrer">GitHub</a>
-        <a href="https://www.linkedin.com/in/osamamalik346/" target="_blank" rel="noreferrer">LinkedIn</a>
-      </nav>
-    </header>
-
+    <a class="brand" href="index.html" aria-label="Osama Malik portfolio"><span class="sq">OM</span>Osama Malik <span class="loc" style="color:var(--faint);font-weight:400">/ Islamabad</span></a>
+    <nav class="nav" aria-label="Primary">
+      <a href="index.html">Portfolio</a>
+      <a href="mailto:usmamalik346@gmail.com">Email</a>
+      <a href="https://github.com/usmamalik345" target="_blank" rel="noreferrer">GitHub</a>
+      <a href="https://www.linkedin.com/in/osamamalik346/" target="_blank" rel="noreferrer">LinkedIn</a>
+    </nav>
+  </div>
+</header>
+<main id="top">
+  <div class="wrap">
     <a class="back" href="index.html#projects">&larr; Back to AI agent projects</a>
-
-    <div class="case-hero">
+    <div class="chero">
       <div class="kicker"><em>Case study</em> · Reliability · Guardrails · Cost &amp; latency</div>
-      <h1>Agent <span class="grad">Receptionist</span></h1>
+      <h1>Agent <span class="a">Receptionist</span></h1>
       <p class="lede">A tool-calling LLM agent for appointment-based businesses, built as an engineering exercise in making an agent predictable: cited answers, guarded output, a deterministic fallback, and latency and cost I can measure.</p>
-      <div class="cta-row">
-        <a class="btn btn-primary" href="https://agent-receptionist.vercel.app/dashboard?biz=dental" target="_blank" rel="noreferrer">Live demo: dental</a>
-        <a class="btn btn-ghost" href="https://agent-receptionist.vercel.app/dashboard?biz=hotel" target="_blank" rel="noreferrer">Live demo: hotel</a>
+      <div class="cta">
+        <a class="btn pri" href="https://agent-receptionist.vercel.app/dashboard?biz=dental" target="_blank" rel="noreferrer">Live demo: dental <span class="ar">↗</span></a>
+        <a class="btn" href="https://agent-receptionist.vercel.app/dashboard?biz=hotel" target="_blank" rel="noreferrer">Live demo: hotel <span class="ar">↗</span></a>
       </div>
-      <div class="metrics">
-        <div class="metric"><b>44/44</b><span>deterministic eval</span></div>
-        <div class="metric"><b>43/44</b><span>live Groq eval</span></div>
-        <div class="metric"><b>19/20</b><span>live question test</span></div>
-        <div class="metric"><b>~$0.0002</b><span>per question (one live check)</span></div>
+      <div class="tiles four" id="tiles">
+        <div class="tile"><div class="k">deterministic eval</div><div class="v"><em>44</em>/44</div><div class="cells" data-n="44"></div></div>
+        <div class="tile"><div class="k">live Groq eval</div><div class="v">43/44</div><div class="cells" data-n="44" data-x="1"></div></div>
+        <div class="tile"><div class="k">live question test</div><div class="v">19/20</div><div class="cells" data-n="20" data-x="1"></div></div>
+        <div class="tile"><div class="k">per question (one live check)</div><div class="v">~$0.0002</div><div class="cells line" data-n="44"></div></div>
       </div>
     </div>
+  </div>
 
-    <section id="problem">
-      <div class="sec-head">
-        <h2>Problem</h2>
-        <p class="sub">Appointment businesses need answers that are fast and correct, not just fluent.</p>
-      </div>
-      <div class="prose">
+    <section class="wrap" id="problem">
+
+      <div class="sechead rv"><div class="sh">01 · problem</div><h2>Problem</h2><p>Appointment businesses need answers that are fast and correct, not just fluent.</p></div>
+      <div class="prose rv">
         <p>A front-desk agent for a hotel or a dental practice is a small, high-stakes domain. A wrong opening hour, an invented service, or a casual reply to an emergency is worse than no answer. A plain "LLM plus prompt" can do all three.</p>
         <p>I built <strong>Agent Receptionist</strong> to see how far an LLM agent can be pushed toward <strong>reliable behaviour</strong>: ground answers in the business's own documents and cite them, handle the predictable cases without the model at all, check every sentence before it reaches the user, keep a deterministic path for booking, and measure latency and cost instead of guessing.</p>
         <p>The two demo businesses, a hotel and a dental practice, are <strong>fictional</strong>. They exist to exercise the same engine against different documents, hours, and policies. Switch between them with <code>?biz=hotel</code> and <code>?biz=dental</code>.</p>
       </div>
+    
     </section>
 
-    <section id="architecture">
-      <div class="sec-head">
-        <h2>Architecture</h2>
-        <p class="sub">Cheap, deterministic decisions come first. The model is called only when it is needed, and its output is checked before it streams.</p>
-      </div>
-      <div class="arch" role="img" aria-label="Request flow: React client sends a question to an Express API. A policy pre-router handles emergencies, hours and handoff without tokens. Otherwise a Groq tool-calling agent with cited RAG replies. A per-sentence guard checks the reply. A deterministic booking engine is the fallback. The reply streams back over SSE with a latency and cost panel.">
+    <section class="wrap" id="architecture">
+
+      <div class="sechead rv"><div class="sh">02 · architecture</div><h2>Architecture</h2><p>Cheap, deterministic decisions come first. The model is called only when it is needed, and its output is checked before it streams.</p></div>
+      <div class="arch rv" role="img" aria-label="Request flow: React client sends a question to an Express API. A policy pre-router handles emergencies, hours and handoff without tokens. Otherwise a Groq tool-calling agent with cited RAG replies. A per-sentence guard checks the reply. A deterministic booking engine is the fallback. The reply streams back over SSE with a latency and cost panel.">
         <div class="arch-row">
           <div class="node cool"><b>React + Vite client</b>Dashboard per business (<code>?biz=</code>). Renders streamed text, citations, and the latency/cost panel.<small>No secrets in the client</small></div>
           <div class="arrow">&rarr;</div>
@@ -300,25 +353,24 @@
         </div>
       </div>
       <p class="arch-note">Stack: React, Vite, TypeScript on the client; Node and Express with SSE on the server; deployed on Vercel.</p>
+    
     </section>
 
-    <section id="reliability">
-      <div class="sec-head">
-        <h2>Reliability &amp; guardrails</h2>
-        <p class="sub">Layers around the model, each cheaper and more predictable than the model itself.</p>
-      </div>
-      <div class="deck">
-        <article class="tile">
+    <section class="wrap" id="reliability">
+
+      <div class="sechead rv"><div class="sh">03 · reliability</div><h2>Reliability &amp; guardrails</h2><p>Layers around the model, each cheaper and more predictable than the model itself.</p></div>
+      <div class="deck rv">
+        <article class="card">
           <p class="tag">Before the model</p>
           <h3>Policy pre-routing</h3>
           <p>Emergencies, opening hours, and handoff to a human are decided by policy, not by the LLM. These cases cost <b>zero tokens</b> and behave the same every time.</p>
         </article>
-        <article class="tile">
+        <article class="card">
           <p class="tag">Grounding</p>
           <h3>RAG that cites sources</h3>
           <p>Answers come from the business's own documents and carry their sources, so a reader can check where a claim came from instead of trusting the model.</p>
         </article>
-        <article class="tile">
+        <article class="card">
           <p class="tag">After the model</p>
           <h3>Per-sentence guard</h3>
           <ul>
@@ -327,12 +379,12 @@
             <li><b>Required facts:</b> answers that must contain a fact are checked for it.</li>
           </ul>
         </article>
-        <article class="tile">
+        <article class="card">
           <p class="tag">Fallback</p>
           <h3>Deterministic booking engine</h3>
           <p>Booking does not have to depend on model behaviour. A deterministic engine is kept as the fallback path, so the agent is not the only thing standing between a user and a booking.</p>
         </article>
-        <article class="tile">
+        <article class="card">
           <p class="tag">Security</p>
           <h3>Secrets and errors stay server-side</h3>
           <ul>
@@ -340,20 +392,19 @@
             <li>Raw provider errors are kept server-side and are not shown to users.</li>
           </ul>
         </article>
-        <article class="tile">
+        <article class="card">
           <p class="tag">Delivery</p>
           <h3>Streaming and visibility</h3>
           <p>Replies stream over SSE with real token streaming, and a latency and cost panel makes each question's timing and token usage visible rather than assumed.</p>
         </article>
       </div>
+    
     </section>
 
-    <section id="results">
-      <div class="sec-head">
-        <h2>Measured results</h2>
-        <p class="sub">From my own test runs. Live runs were on 2026-10-24.</p>
-      </div>
-      <div class="table-wrap">
+    <section class="wrap" id="results">
+
+      <div class="sechead rv"><div class="sh">04 · results</div><h2>Measured results</h2><p>From my own test runs. Live runs were on 2026-10-24.</p></div>
+      <div class="table-wrap rv">
         <table>
           <thead><tr><th>Check</th><th>Result</th><th>Notes</th></tr></thead>
           <tbody>
@@ -368,15 +419,14 @@
         </table>
       </div>
       <p class="fine">Small suites on fictional businesses: these numbers show the engine behaves as designed, not how it would perform on a real business's traffic. The latency and cost figures come from a handful of runs and one live check.</p>
+    
     </section>
 
-    <section id="tradeoffs">
-      <div class="sec-head">
-        <h2>Tradeoffs &amp; what I'd improve</h2>
-        <p class="sub">What this design gives up, and what I would do next.</p>
-      </div>
-      <div class="deck">
-        <article class="tile">
+    <section class="wrap" id="tradeoffs">
+
+      <div class="sechead rv"><div class="sh">05 · tradeoffs</div><h2>Tradeoffs &amp; what I'd improve</h2><p>What this design gives up, and what I would do next.</p></div>
+      <div class="deck rv">
+        <article class="card">
           <p class="tag">Tradeoffs</p>
           <h3>Predictability over flexibility</h3>
           <ul>
@@ -385,7 +435,7 @@
             <li>A deterministic fallback adds a second code path to keep correct.</li>
           </ul>
         </article>
-        <article class="tile">
+        <article class="card">
           <p class="tag">Next</p>
           <h3>What I'd improve</h3>
           <ul>
@@ -395,29 +445,42 @@
           </ul>
         </article>
       </div>
+    
     </section>
 
-    <section id="demo">
-      <div class="sec-head">
-        <h2>Live demo</h2>
-        <p class="sub">Try it on either fictional business.</p>
-      </div>
-      <div class="demo-card">
+    <section class="wrap" id="demo">
+
+      <div class="sechead rv"><div class="sh">06 · live demo</div><h2>Live demo</h2><p>Try it on either fictional business.</p></div>
+      <div class="demo rv">
         <div class="prose"><p>Open the dashboard and ask a question, then look at the citations and the latency/cost panel. Try asking about an emergency or opening hours to see policy pre-routing.</p></div>
-        <div class="cta-row">
-          <a class="btn btn-primary" href="https://agent-receptionist.vercel.app/dashboard?biz=dental" target="_blank" rel="noreferrer">Open dental demo</a>
-          <a class="btn btn-ghost" href="https://agent-receptionist.vercel.app/dashboard?biz=hotel" target="_blank" rel="noreferrer">Open hotel demo</a>
+        <div class="cta">
+          <a class="btn pri" href="https://agent-receptionist.vercel.app/dashboard?biz=dental" target="_blank" rel="noreferrer">Open dental demo <span class="ar">↗</span></a>
+          <a class="btn" href="https://agent-receptionist.vercel.app/dashboard?biz=hotel" target="_blank" rel="noreferrer">Open hotel demo <span class="ar">↗</span></a>
         </div>
         <p class="fine">Source code is private. Available on request or in interviews: <a href="mailto:usmamalik346@gmail.com">usmamalik346@gmail.com</a>.</p>
       </div>
+    
     </section>
 
-    <footer>
-      <span>Osama Malik · Islamabad · BS CS, AIOU</span>
-      <a href="mailto:usmamalik346@gmail.com">usmamalik346@gmail.com</a>
-      <a href="tel:+923069607679">+92 306 9607679</a>
-      <a href="https://www.linkedin.com/in/osamamalik346/" target="_blank" rel="noreferrer">LinkedIn</a>
-    </footer>
-  </div>
+</main>
+
+<footer><div class="wrap"><div class="fin">
+  <span>Osama Malik · Islamabad · BS CS, AIOU</span>
+  <div class="fl"><a href="mailto:usmamalik346@gmail.com">usmamalik346@gmail.com</a><a href="tel:+923069607679">+92 306 9607679</a><a href="https://www.linkedin.com/in/osamamalik346/" target="_blank" rel="noreferrer">LinkedIn</a><a href="https://github.com/usmamalik345" target="_blank" rel="noreferrer">GitHub</a></div>
+</div></div></footer>
+
+<script>(function(){
+  document.querySelectorAll(".cells").forEach(function(el){
+    var n=+el.dataset.n,x=+el.dataset.x||0;if(el.classList.contains("line"))return;
+    for(var i=0;i<n;i++){var s=document.createElement("span");s.style.setProperty("--i",i);if(x&&i>=n-x)s.className="x";el.appendChild(s);}
+  });
+  var spot=document.getElementById("spot");
+  if(!matchMedia("(prefers-reduced-motion: reduce)").matches){
+    addEventListener("pointermove",function(e){spot.style.setProperty("--mx",e.clientX+"px");spot.style.setProperty("--my",(e.clientY+scrollY)+"px");},{passive:true});
+  }
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}});},{threshold:.12});
+  document.querySelectorAll(".rv").forEach(function(el){io.observe(el);});
+  var t=document.getElementById("tiles");if(t)t.classList.add("in");
+})();</script>
 </body>
 </html>
