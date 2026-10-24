@@ -451,12 +451,18 @@
       </div>
     </section>
 
-    <section>
+    <section id="projects">
       <div class="sec-head">
         <h2>AI agent projects</h2>
         <p class="sub">Detailed proof behind the pitch.</p>
       </div>
       <div class="deck">
+        <article class="tile">
+          <p class="tag">AI agent · engineering case study</p>
+          <h3>Agent Receptionist</h3>
+          <p>Tool-calling LLM agent (Groq, gpt-oss-120b) for appointment-based businesses. RAG with cited sources, policy pre-routing for emergencies, hours and handoff at zero tokens, a per-sentence guard, a deterministic booking fallback, and streaming SSE replies. Measured: deterministic eval 44/44, live Groq eval 43/44 (one eval-regex miss), live 20-question test 19/20, about $0.0002 per question in one live check. Demos use fictional businesses; source is private, available on request.</p>
+          <div class="links"><a href="case-study.html">Case study</a> · <a href="https://agent-receptionist.vercel.app/dashboard?biz=dental" target="_blank" rel="noreferrer">Live demo: dental</a> · <a href="https://agent-receptionist.vercel.app/dashboard?biz=hotel" target="_blank" rel="noreferrer">Live demo: hotel</a></div>
+        </article>
         <article class="tile">
           <p class="tag">LLM security · infrastructure</p>
           <h3>BleedStop</h3>
