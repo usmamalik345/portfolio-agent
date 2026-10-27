@@ -284,6 +284,16 @@ footer a:hover{color:var(--accent)}
   td{display:block;padding:2px 0;border:0;width:auto!important}
   td:first-child{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:400;padding-bottom:4px}
 }
+
+/* demo video */
+.vid{margin-top:48px;border:1px solid var(--line2);background:#060908;box-shadow:0 30px 60px -30px rgba(0,0,0,.8);max-width:1000px}
+.vid .bar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--line2);color:var(--dim);font-family:var(--mono);font-size:11.5px}
+.vid .bar i{width:9px;height:9px;border-radius:50%;background:var(--line2)}
+.vid .bar span{margin-left:auto}
+.vid video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#000}
+.vid .cap{padding:14px 18px 16px;font-size:13.5px;line-height:1.6;color:var(--dim);border-top:1px solid var(--line2)}
+.vid .cap b{color:var(--text);font-weight:500}
+.vid .cap a{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -318,6 +328,18 @@ footer a:hover{color:var(--accent)}
       </div>
     </div>
   </div>
+
+    <section class="wrap" id="video">
+
+  <div class="vid rv" style="margin-top:0" id="demo-video">
+    <div class="bar"><i></i><i></i><i></i><span>agent-receptionist — demo video · 73 s · voiceover</span></div>
+    <video controls preload="metadata" playsinline poster="assets/agent-receptionist-demo-poster.jpg" aria-label="Voiceover walkthrough of the Agent Receptionist: case study, live demo with tool calls and RAG sources, and the same engine on a different business">
+      <source src="assets/agent-receptionist-demo.mp4" type="video/mp4">
+      Your browser can't play this video. <a href="assets/agent-receptionist-demo.mp4">Download the MP4</a>.
+    </video>
+    <div class="cap"><b>Watch the walkthrough.</b> A 73 second walkthrough with voiceover: the case study, the live demo (tool calling, RAG with sources, latency and cost per turn) and the same engine on a different fictional business.</div>
+  </div>
+    </section>
 
     <section class="wrap" id="problem">
 
