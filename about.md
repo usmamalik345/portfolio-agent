@@ -81,10 +81,10 @@ Contributed CLI reliability: exit non-zero on red error paths for the memory sub
 
 LinkedIn lists about 4 years of experience.
 
-- Angular Developer, Onlinx Solutions (London, team in Pakistan). March 2024–present. Islamabad. Engineering. Onlinx builds custom software for businesses.
+- Angular Developer, Onlinx Solutions (London, team in Pakistan). July 2024–present. Islamabad. Engineering. Onlinx builds custom software for businesses.
 - AI medical agents work on Jivi AI (https://www.jivi.ai/ai-agents). Multi-agent healthcare system for doctors, patients, and providers: clinical agents (symptom triage, risk, emergency, treatment, medication, drug safety, radiology, ECG, diagnostic lab), wellness agents (nutrition, emotion, stress, hydration, skin, mental health, fitness), and Doctor AI Co-Pilot agents (clinical summary, consultation prompts, auto-scribe, diagnosis support, pharmacy checker, pre-visit summary, medical coding).
-- Angular Developer, IT Pixelz. April 2023–May 2024. Islamabad. CRM dashboards and an AI image platform (see projects).
-- Junior Angular Developer, Zepto Systems Limited. June 2022–March 2023. Islamabad. Angular apps, component library, CI/CD, mentoring.
+- Angular Developer, IT Pixelz. March 2023–June 2024. Islamabad. CRM dashboards and an AI image platform (see projects).
+- Junior Angular Developer, Zepto Systems Limited. January 2022–February 2023. Islamabad. Angular apps, component library, CI/CD, mentoring.
 
 IT Pixelz work he published:
 
