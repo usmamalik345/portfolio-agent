@@ -2,4 +2,10 @@
 
 Live portfolio and AI agent chat for Osama Malik.
 
-Site: https://usmamalik345.github.io/portfolio-agent/
+Case study: https://osamamalik.me/portfolio-agent/case-study.html
+
+Built by [Osama Malik](https://osamamalik.me), AI Agent Engineer in Islamabad, Pakistan.
+
+
+
+
